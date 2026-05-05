@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Runtime artifacts
+workspace/
+workspace_backups/
+bird_data/
+tau2_data/
+agentbench_local/
+bird_interact_adk/
+logs/
+outputs/
+
+# AgentBench data
+AgentBench/data/full/
+AgentBench/results/
+AgentBench/config.sh
+AgentBench/download
+AgentBench/*.ipynb
+AgentBench/.cache/
+AgentBench/src/server/tasks/card_game/result/
+AgentBench/analysis/
+
+# Local config (generated from template)
+auto-harness/experiment_config.yaml
+auto-harness/.claude/
