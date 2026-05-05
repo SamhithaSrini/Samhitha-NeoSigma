@@ -473,6 +473,16 @@ class AgentBenchRunner(BenchmarkRunner):
                         env=session_env,
                         timeout=30,
                     )
+                    if result.returncode != 0 and "chdir to cwd" in result.stderr:
+                        cwd = "/"
+                        result = self._docker_exec(
+                            container_name,
+                            cmd_block,
+                            cwd=cwd,
+                            user=user,
+                            env=session_env,
+                            timeout=30,
+                        )
                     stdout = result.stdout[-2000:]
                     stderr = result.stderr[-500:]
                     env_feedback = stdout + (f"\n[stderr]: {stderr}" if stderr else "")
