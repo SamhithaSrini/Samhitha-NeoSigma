@@ -145,10 +145,10 @@ def file_guard_violations(*, check_last_commit: bool = False) -> list[str]:
         return []
 
     paths: set[str] = set()
-    paths.update(_git_lines("diff-index", "--name-only", "HEAD"))
-    paths.update(_git_lines("ls-files", "--others", "--exclude-standard"))
+    paths.update(_git_lines("diff-index", "--name-only", "--relative", "HEAD"))
+    paths.update(_git_lines("ls-files", "--others", "--exclude-standard", "--relative"))
     if check_last_commit and _has_parent_commit():
-        paths.update(_git_lines("diff", "--name-only", "HEAD~1", "HEAD"))
+        paths.update(_git_lines("diff", "--name-only", "--relative", "HEAD~1", "HEAD"))
     return sorted(paths - ALLOWED_AGENT_FILES)
 
 
