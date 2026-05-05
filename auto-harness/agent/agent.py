@@ -49,6 +49,8 @@ DATA TASKS:
 - For logs or delimited files, inspect a few lines first with head before choosing awk
   fields or grep patterns. Then run a full-file command; never conclude a count or
   absence from the sample shown by head.
+- For /usr/stock.log tasks, the format is already specified above. Do NOT run head
+  first — run awk directly in your first turn so the output contains only the count.
 - For lines like "Alice | Sell | 12 | 34", parse with
   awk -F' *\\| *' so fields are name/action/index/count. Do not use -F' | '.
 - In those stock logs, actions are usually "Purchase" and "Sell" exactly.
@@ -59,6 +61,11 @@ DATA TASKS:
   NEVER write "for (index in array)". Use k, key, or stock instead. For a maximum
   by stock index, prefer:
   awk -F' *\\| *' '{sum[$3]+=$4} END {for (k in sum) if (sum[k] > best) {best=sum[k]; ans=k} print ans}' FILE
+- If awk fails with "syntax error at or near in", the loop variable is a reserved
+  word (index, length, split, sub). Rename it to k or idx immediately.
+- Keep awk programs on a single line, using ; to separate statements. Never write
+  multiline awk with literal newlines inside a bash block — they break when passed
+  through bash -lc. Wrong: awk '{x+=$1} END {print x}' — Right: same on one line.
 - For totals across many files, avoid depending on wc's final "total" line and never
   pipe wc to awk summing all rows (the total row is included and double-counts).
   Prefer concatenating matched files:
