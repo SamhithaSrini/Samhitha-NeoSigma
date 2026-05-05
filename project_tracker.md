@@ -1,5 +1,19 @@
 # AgentBench OS Project Tracker
 
+## Iteration Summary
+
+| Iter | Val Score | Δ | What Changed | File(s) |
+|------|-----------|---|--------------|---------|
+| 0 | 0.4167 (15/36) | baseline | Initial harness integration, AgentBench runner, answer-extraction fix | `benchmark.py` |
+| 1 | 0.4167 (15/36) | +0.00 | Side-effect prompt rules (here-docs, chmod, test before answer); session cwd/user tracking | `agent/agent.py`, `benchmark.py` |
+| 2 | 0.5000 (18/36) | +0.08 | Corrective feedback on no-action turns; "command produced no output" message | `benchmark.py` |
+| 3 | 0.5833 (21/36) | +0.08 | Stock-log awk rules (pipe separator, action names, count vs sum vs distinct); reject unresolved `$var` answers | `agent/agent.py`, `benchmark.py` |
+| 4 | 0.6111 (22/36) | +0.03 | Persist session env vars across docker exec calls; execute all bash blocks per turn (not just first) | `benchmark.py` |
+| 5 | 0.6111 (22/36) | +0.00 | Avoid `wc` summary-row double-count; OCI cwd retry on chdir error; fix gating file-guard paths | `agent/agent.py`, `benchmark.py`, `gating.py` |
+| 6 | 0.6389 (23/36) | +0.03 | awk reserved-word (`index`→`k`); single-line awk rule; skip `head` for stock logs so awk result is unambiguous | `agent/agent.py` |
+
+---
+
 ## Current Goal
 
 Integrate `auto-harness` with AgentBench OS and improve the AgentBench validation
