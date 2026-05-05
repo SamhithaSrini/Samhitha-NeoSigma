@@ -280,15 +280,25 @@ class AgentBenchRunner(BenchmarkRunner):
         container_name: str,
         script: tuple[str, str],
         params: list[str],
+        env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess:
         language, code = script
+        docker_cmd = ["docker", "exec"]
+        for key, value in (env or {}).items():
+            docker_cmd.extend(["-e", f"{key}={value}"])
         if language == "python":
-            cmd = ["docker", "exec", container_name, "python3", "-c", code, *params]
+            cmd = [*docker_cmd, container_name, "python3", "-c", code, *params]
         else:
-            cmd = ["docker", "exec", container_name, "bash", "-c", code, "--", *params]
+            cmd = [*docker_cmd, container_name, "bash", "-c", code, "--", *params]
         return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
-    def _score_final_output(self, task: dict, final_output: str | None, container_name: str) -> float:
+    def _score_final_output(
+        self,
+        task: dict,
+        final_output: str | None,
+        container_name: str,
+        session_env: dict[str, str] | None = None,
+    ) -> float:
         if final_output is None:
             return 0.0
 
@@ -312,7 +322,12 @@ class AgentBenchRunner(BenchmarkRunner):
                 actual_script = script or example_script
                 if actual_script is None:
                     return 0.0
-                result = self._run_eval_script(container_name, actual_script, params)
+                result = self._run_eval_script(
+                    container_name,
+                    actual_script,
+                    params,
+                    env=session_env,
+                )
                 if result.returncode != 0:
                     return 0.0
                 params.append(result.stdout)
@@ -325,7 +340,8 @@ class AgentBenchRunner(BenchmarkRunner):
         command: str,
         cwd: str,
         user: str | None,
-    ) -> tuple[str, str | None]:
+        env: dict[str, str],
+    ) -> tuple[str, str | None, dict[str, str]]:
         import re
 
         cd_matches = re.findall(r"(?:^|&&|;)\s*cd\s+([^\s;&]+)", command)
@@ -343,7 +359,22 @@ class AgentBenchRunner(BenchmarkRunner):
             user = su_match.group(1)
             cwd = f"/home/{user}"
 
-        return cwd, user
+        export_matches = re.findall(
+            r"(?:^|&&|;|\n)\s*export\s+([A-Za-z_][A-Za-z0-9_]*)=([^\n;&]+)",
+            command,
+        )
+        for name, raw_value in export_matches:
+            if name == "PATH":
+                continue
+            value = raw_value.strip().strip("\"'")
+            value = value.replace("$HOME", f"/home/{user}" if user and user != "root" else "/root")
+            if name in env:
+                value = value.replace(f"${name}", env[name])
+            if "$" in value:
+                continue
+            env[name] = value
+
+        return cwd, user, env
 
     def _docker_exec(
         self,
@@ -352,9 +383,12 @@ class AgentBenchRunner(BenchmarkRunner):
         *,
         cwd: str = "/",
         user: str | None = None,
+        env: dict[str, str] | None = None,
         timeout: int = 30,
     ) -> subprocess.CompletedProcess:
         docker_cmd = ["docker", "exec"]
+        for key, value in (env or {}).items():
+            docker_cmd.extend(["-e", f"{key}={value}"])
         if user:
             docker_cmd.extend(["-u", user])
         if cwd:
@@ -399,19 +433,21 @@ class AgentBenchRunner(BenchmarkRunner):
 
             cwd = "/"
             user: str | None = None
+            session_env: dict[str, str] = {}
             for cmd in trace["init_commands"]:
                 result = self._docker_exec(
                     container_name,
                     cmd,
                     cwd=cwd,
                     user=user,
+                    env=session_env,
                     timeout=60,
                 )
                 if result.returncode != 0:
                     trace.setdefault("init_errors", []).append(
                         {"cmd": cmd, "stderr": result.stderr[-1000:]}
                     )
-                cwd, user = self._update_session_context(cmd, cwd, user)
+                cwd, user, session_env = self._update_session_context(cmd, cwd, user, session_env)
 
             history: list[dict] = []
             final_output: str | None = None
@@ -434,6 +470,7 @@ class AgentBenchRunner(BenchmarkRunner):
                         cmd_block,
                         cwd=cwd,
                         user=user,
+                        env=session_env,
                         timeout=30,
                     )
                     stdout = result.stdout[-2000:]
@@ -445,7 +482,12 @@ class AgentBenchRunner(BenchmarkRunner):
                     trace_turn["cmd"] = cmd_block
                     trace_turn["env_output"] = env_feedback
                     trace_turn["cmd_success"] = result.returncode == 0
-                    cwd, user = self._update_session_context(cmd_block, cwd, user)
+                    cwd, user, session_env = self._update_session_context(
+                        cmd_block,
+                        cwd,
+                        user,
+                        session_env,
+                    )
 
                 answer = _extract_final_answer(agent_response)
                 if answer is not None:
@@ -461,7 +503,7 @@ class AgentBenchRunner(BenchmarkRunner):
                     trace_turn["env_output"] = feedback
                     trace_turn["cmd_success"] = False
 
-            reward = self._score_final_output(task, final_output, container_name)
+            reward = self._score_final_output(task, final_output, container_name, session_env)
             trace["final_output"] = final_output
             trace["reward"] = reward
         except Exception as e:
@@ -1171,11 +1213,12 @@ class BirdInteractRunner(BenchmarkRunner):
 
 
 def _extract_code_block(text: str) -> str | None:
-    """Extract the first bash/sh fenced code block from an agent response."""
+    """Extract bash/sh fenced code blocks from an agent response."""
     import re
 
-    match = re.search(r"```(?:bash|sh)\n(.*?)```", text, re.DOTALL)
-    return match.group(1).strip() if match else None
+    matches = re.findall(r"```(?:bash|sh)\n(.*?)```", text, re.DOTALL)
+    blocks = [match.strip() for match in matches if match.strip()]
+    return "\n\n".join(blocks) if blocks else None
 
 
 def _extract_final_answer(text: str) -> str | None:
@@ -1184,7 +1227,19 @@ def _extract_final_answer(text: str) -> str | None:
 
     text_without_code = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     matches = re.findall(r"ANSWER:\s*(.+)", text_without_code)
-    return matches[-1].strip() if matches else None
+    if not matches:
+        return None
+    answer = matches[-1].strip()
+    if _looks_unresolved_answer(answer):
+        return None
+    return answer
+
+
+def _looks_unresolved_answer(answer: str) -> bool:
+    if not answer:
+        return True
+    unresolved_markers = ("$", "`", "$(", "${")
+    return any(marker in answer for marker in unresolved_markers)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ RULES:
 5. Before outputting ANSWER, verify it exactly matches the expected format:
    - Single value only, no extra text, no trailing whitespace
    - If the task asks for a number, output only the number
+   - Never output an unresolved shell variable such as $total or $answer
 6. Output your final answer as: ANSWER: <value>
 
 SIDE EFFECT TASKS:
@@ -39,13 +40,30 @@ SIDE EFFECT TASKS:
 - Do not paste a raw script body as the command to execute. A command block must be
   executable shell that performs the action.
 - If a command should output a computed value, run it first. Do not put ANSWER inside
-  the bash block; wait for the command output, then respond with ANSWER on the next turn.
+  the bash block or in the same message; wait for the command output, then respond
+  with ANSWER on the next turn.
 
 DATA TASKS:
 - Operate on the files/directories that already exist after initialization. Do not
   invent sample data unless the instruction explicitly asks you to create it.
 - For logs or delimited files, inspect a few lines first with head before choosing awk
-  fields or grep patterns.
+  fields or grep patterns. Then run a full-file command; never conclude a count or
+  absence from the sample shown by head.
+- For lines like "Alice | Sell | 12 | 34", parse with
+  awk -F' *\\| *' so fields are name/action/index/count. Do not use -F' | '.
+- In those stock logs, actions are usually "Purchase" and "Sell" exactly.
+  "how many times Alice/Bob sold/bought" means count matching log rows.
+  "total number of stocks Alice/Bob bought/sold" means sum the count column.
+  "number of types of stocks" means count distinct stock-index values.
+- In awk loops, avoid variable names that collide with built-ins such as index.
+  NEVER write "for (index in array)". Use k, key, or stock instead. For a maximum
+  by stock index, prefer:
+  awk -F' *\\| *' '{sum[$3]+=$4} END {for (k in sum) if (sum[k] > best) {best=sum[k]; ans=k} print ans}' FILE
+- For totals across many files, avoid depending on wc's final "total" line. Prefer
+  concatenating matched files, for example:
+  find DIR -type f -name '*.txt' -exec cat {} + | wc -l
+  or sum with awk. Use grep -h when matching many files and you do not want
+  filename prefixes in the data.
 
 Think step by step. Use standard Unix tools. Never guess."""
 

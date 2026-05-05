@@ -230,3 +230,83 @@ Fresh train run after Iteration 2:
 - Refreshed `workspace/failure_taxonomy.json` for the current 52 train failures.
 - Fixed `classifier.py` so passing tasks from the current split are removed from
   the active taxonomy instead of lingering from older runs.
+
+### Iteration 3 - Stock-Log Parsing and Unresolved Answers
+
+Hypothesis:
+
+- Several failures came from recurring stock-log interpretation mistakes:
+  treating `head` output as complete evidence, using fragile pipe delimiters,
+  confusing "times" with summed share counts, and using `index` as an awk loop
+  variable.
+- Some failures came from unresolved shell variables being accepted as final
+  answers, for example `ANSWER: $total_lines`.
+
+Changes:
+
+- Updated `agent/agent.py` with explicit stock-log rules:
+  - use the full file after inspecting the format with `head`;
+  - parse `name | action | stock_index | count` with `awk -F' *\\| *'`;
+  - count rows for "how many times";
+  - sum the count column for "total number of stocks";
+  - count distinct stock-index values for "number of types";
+  - avoid `index` as an awk variable.
+- Updated `benchmark.py` so unresolved shell variables in `ANSWER:` are ignored
+  and the agent gets another turn.
+
+Focused subset:
+
+- Stock-log subset: 4 / 4 passed after the prompt refinement.
+- Earlier 7-task mixed subset exposed two line-count tasks where the local
+  AgentBench reference command double-counts `wc` total rows; we did not teach
+  the agent that incorrect behavior.
+
+Validation result:
+
+- `val_score`: 0.5833
+- Passed: 21 / 36
+- Change from corrected baseline: +0.1666
+- Change from previous validation run: +0.0833
+
+Decision:
+
+- Keep the prompt and unresolved-answer extraction changes.
+- Next target: inspect the remaining 15 validation failures for another narrow
+  pattern that can improve score without overfitting to known-bug check scripts.
+
+### Iteration 4 - Session Env and Multi-Block Execution
+
+Hypothesis:
+
+- AgentBench init scripts sometimes set environment variables such as
+  `TARGET_DIR`, but separate `docker exec` calls were losing them.
+- The runner only executed the first bash block in an agent response, which left
+  "create script, then test it" responses half-finished.
+
+Changes:
+
+- Updated `AgentBenchRunner` to persist simple exported environment variables
+  across init, agent, and evaluation commands.
+- Passed the persisted environment into check/example scripts so reference
+  commands that depend on exported variables score correctly.
+- Updated bash extraction to execute all fenced bash/sh blocks in a response in
+  order inside one shell command.
+
+Focused subset:
+
+- `std-007-bootstrap-8`: fail -> pass after environment persistence.
+- `std-005-new-2`, `std-007-bootstrap-25`, `std-007-bootstrap-84`: 3 / 3 passed
+  after multi-block execution.
+
+Validation result:
+
+- `val_score`: 0.6111
+- Passed: 22 / 36
+- Change from corrected baseline: +0.1944
+- Change from previous best: +0.0278
+
+Decision:
+
+- Keep both harness changes.
+- Next target: remaining failures are mostly command semantics and checker quirks,
+  especially hidden-file filtering, line-count variants, and system-stat tasks.
