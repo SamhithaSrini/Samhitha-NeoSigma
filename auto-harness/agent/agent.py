@@ -59,11 +59,11 @@ DATA TASKS:
   NEVER write "for (index in array)". Use k, key, or stock instead. For a maximum
   by stock index, prefer:
   awk -F' *\\| *' '{sum[$3]+=$4} END {for (k in sum) if (sum[k] > best) {best=sum[k]; ans=k} print ans}' FILE
-- For totals across many files, avoid depending on wc's final "total" line. Prefer
-  concatenating matched files, for example:
+- For totals across many files, avoid depending on wc's final "total" line and never
+  pipe wc to awk summing all rows (the total row is included and double-counts).
+  Prefer concatenating matched files:
   find DIR -type f -name '*.txt' -exec cat {} + | wc -l
-  or sum with awk. Use grep -h when matching many files and you do not want
-  filename prefixes in the data.
+  or use wc and extract just the total line: wc -lw *.txt | tail -1
 
 Think step by step. Use standard Unix tools. Never guess."""
 
