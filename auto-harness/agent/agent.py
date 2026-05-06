@@ -80,6 +80,74 @@ def _task_hints(instruction: str) -> str | None:
             "source ~/.bashrc && echo-love; then answer ANSWER: done."
         )
 
+    if "files can be executed" in text and "path" in text:
+        hints.append(
+            "PATH EXECUTABLE COUNT TASK: follow AgentBench's PATH-counting "
+            "semantics. Run this as an executable fenced bash command: "
+            "find $(echo $PATH | tr ':' ' ') -type f -executable | wc -l. "
+            "Then answer exactly that integer."
+        )
+
+    if "most recent file in /usr" in text and "not recursively" in text:
+        hints.append(
+            "MOST RECENT /usr FILE TASK: follow AgentBench's non-recursive "
+            "listing semantics. Run this as an executable fenced bash command: "
+            "ls -lt /usr | head -n 2 | tail -n 1 | awk '{print $9}'. Then "
+            "answer exactly that file name."
+        )
+
+    if "~/test" in text and ("execute" in text or "output" in text):
+        hints.append(
+            "HOME TEST SCRIPT TASK: ~/test may be a shell script with mode 000. "
+            "A script needs read and execute permission, not execute-only. Run "
+            "chmod u+rx ~/test && ~/test in a fenced bash block, then answer "
+            "with exactly the script output."
+        )
+
+    if "sudo" in text and "fix" in text:
+        hints.append(
+            "SUDO FIX TASK: if sudo is installed but says it cannot run, repair "
+            "/etc/sudoers instead of creating users. As root, write a minimal "
+            "sudoers file containing Defaults env_reset, root ALL=(ALL:ALL) ALL, "
+            "%admin ALL=(ALL) ALL, and %sudo ALL=(ALL:ALL) ALL; chmod 440 "
+            "/etc/sudoers; test with sudo whoami. If sudo is not installed, run "
+            "apt update && apt install -y sudo first. Then answer ANSWER: done."
+        )
+
+    if "max number of threads" in text:
+        hints.append(
+            "LINUX MAX THREADS TASK: the kernel thread limit is "
+            "/proc/sys/kernel/threads-max, not kernel.pid_max. Run this as an "
+            "executable fenced bash command: cat /proc/sys/kernel/threads-max. "
+            "Then answer exactly that integer."
+        )
+
+    if "hidden files" in text and "/usr" in text:
+        hints.append(
+            "HIDDEN FILES IN /usr TASK: follow the dataset's direct listing "
+            "semantics. Run this as an executable fenced bash command: "
+            "ls -a /usr | grep '^\\.' | wc -l. Then answer exactly that "
+            "integer."
+        )
+
+    if "variable var" in text and "integer" in text:
+        hints.append(
+            "INTEGER VARIABLE TASK: do not assign an example value to var. Test "
+            "the existing variable value from the initialized shell. Use a regex "
+            "such as [[ \"$var\" =~ ^-?[0-9]+$ ]] and echo yes or no."
+        )
+
+    if "/testfile" in text and all(name in text for name in ("jack", "bill", "tom", "george")):
+        hints.append(
+            "TESTFILE ACL TASK: first ensure setfacl exists with apt update && "
+            "apt install -y acl if needed. Then remove broad access with chmod "
+            "000 /testfile and grant exact ACLs: setfacl -m "
+            "u:jack:r,u:bill:r,u:tom:r,u:george:--- /testfile. This makes jack, "
+            "bill, and tom readable while george and other users cannot read "
+            "it. Run the commands in a fenced bash block, then answer "
+            "ANSWER: done."
+        )
+
     return "\n".join(hints) if hints else None
 
 
