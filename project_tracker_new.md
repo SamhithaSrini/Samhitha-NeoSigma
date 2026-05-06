@@ -1,5 +1,21 @@
 # AgentBench OS Static-Runner Restart Tracker
 
+## Submission Snapshot
+
+- Stop point: Phase 2 / Iteration 6.
+- Final submitted train score: 0.6852 (74 / 108).
+- Final submitted held-out validation score: 0.6389 (23 / 36).
+- Best previous held-out score before Phase 2 continuation: 0.6111 (22 / 36).
+- Clean static-runner baseline: train 0.5093 (55 / 108), validation 0.5000
+  (18 / 36).
+- Files intentionally changed for optimization: `auto-harness/agent/agent.py`
+  and this tracker.
+- Files intentionally left static: `benchmark.py`, `gating.py`, split
+  generation, and scoring.
+- Decision: stop after Iteration 6 because it improves train while preserving
+  the best held-out validation result; broad aggregation prompt changes remain
+  out of scope unless separately validated.
+
 ## Iteration Summary
 
 | Iter | Train Score | Validation Score | Delta (Val) | What Changed | File(s) |
