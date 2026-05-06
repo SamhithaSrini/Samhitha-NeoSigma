@@ -16,7 +16,7 @@ Your edit targets are `agent/agent.py` and `workspace/learnings.md`. Everything 
 
 | File | Purpose |
 |------|---------|
-| `agent/agent.py` | The agent you optimize |
+| `agent/agent.py` | The agent you optimize, including any internal helper tools it defines |
 | `workspace/learnings.md` | Persistent learnings log — patterns, hypotheses, requests to the human — **append after every iteration** |
 | `workspace/results.tsv` | Iteration history — written by `record.py` after each successful gate |
 
@@ -65,6 +65,15 @@ Read the stdout output. Note which tasks failed. The results are also saved to `
 ### 3. Improve Agent
 
 Edit `agent/agent.py` — you own the entire file. The benchmark runner imports `HarnessAgent` directly, so any change here is picked up automatically.
+
+`agent.py` may design and use its own internal tools/helpers when that is the
+cleanest way to improve benchmark behavior. Examples include helper functions
+for trace-aware prompting, command templates, answer validation, prompt routing,
+or small deterministic pre/post-processing utilities inside `agent.py`.
+
+Do not add new tracked helper files for these tools unless the human explicitly
+approves it. Keep tool logic inside `agent.py`, and do not modify the benchmark
+runner, scoring, gating, or dataset to support the tool.
 
 Make one focused change per iteration. Smaller changes are easier to gate and easier to revert.
 
@@ -145,6 +154,8 @@ Go to step 1.
 1. **Only edit `agent/agent.py` and `workspace/learnings.md`** — never touch infrastructure files. `gating.py` and `record.py` enforce this with a `git diff` check; modifying any other tracked file fails the gate immediately.
 2. **Never skip the gate** — every committed change must pass every gate step
 3. **One hypothesis per iteration** — keep changes small and reversible
+   Internal tools are allowed, but each tool change still counts as the single
+   hypothesis for that iteration and must be evaluated like any prompt change.
 4. **Always update `learnings.md`** — even on failure; the log is your memory
 5. **Never use test data to guide changes** — only train failures inform improvements
 6. **Per-task timeouts count as failures** — any task that does not produce a verifier result within `per_task_timeout` scores `0.0` in `val_score`. If you see consistent timeouts, treat that as a signal to make the prompt more direct, not to ignore the missing reward.
